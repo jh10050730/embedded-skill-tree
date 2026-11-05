@@ -359,7 +359,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <p>전기전자, 컴퓨터 구조, 하드웨어 시스템, 임베디드 시스템, 임베디드 리눅스·소프트웨어 5개 분야를 기초부터 심화까지 이어 놓은 공부 지도입니다. 원 하나가 주제 하나이고, 선은 먼저 공부하면 좋은 주제를 잇습니다.</p>
     <ol>
       <li><div><b>가운데 START 에서 출발</b><span>점선 원 안쪽이 기초, 바깥쪽이 심화입니다. 각 분야의 첫 원은 바로 시작할 수 있습니다.</span></div></li>
-      <li><div><b>원을 눌러 내용 보기</b><span>개념마다 설명이 있고, 추천 자료와 확인 문제 5개가 이어집니다.</span></div></li>
+      <li><div><b>원을 눌러 내용 보기</b><span>‘학습 시작’을 누르면 ‘진행 중’으로 표시됩니다. 개념마다 설명이 있고, 추천 자료와 확인 문제 5개가 이어집니다.</span></div></li>
       <li><div><b>확인 문제 5개를 모두 맞히면 완료</b><span>틀린 문제는 해설을 보고 다시 풀 수 있습니다. 완료한 주제와 이어진 다음 주제가 밝아집니다. 진행 상황은 이 브라우저에 자동 저장됩니다.</span></div></li>
     </ol>
     <p>선은 권장 순서일 뿐 잠금이 아닙니다. 어떤 원이든 바로 열어 볼 수 있습니다.</p>
@@ -411,14 +411,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} };
 
   // ── 상태 계산 ──
-  // store[id] = { ok: [문항별 정답 여부] }  → 5문제를 모두 맞히면 완료
+  // store[id] = { started: 학습 시작 여부, ok: [문항별 정답 여부] }
   const solved = n => { const a = (store[n.id] && store[n.id].ok) || []; return n.quiz.map((_, i) => !!a[i]); };
   const frac = n => { const c = solved(n); return c.length ? c.filter(Boolean).length / c.length : 0; };
   const isDone = n => frac(n) === 1;
   function state(n) {
     const f = frac(n);
     if (f === 1) return "done";
-    if (f > 0) return "progress";
+    if (f > 0 || store[n.id]?.started) return "progress";
     return n.pre.every(p => isDone(byId[p])) ? "available" : "locked";
   }
   // 주제 묶음: 원과 선의 색은 묶음 색, 분야 영역의 색은 분야 색
@@ -793,6 +793,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
         <button class="icon-btn" id="pClose" aria-label="닫기">✕</button>
       </div>
       <p class="p-sum">${esc(n.sum)}</p>
+      ${s === "available" || s === "locked" ? `<div class="p-actions"><button class="btn primary" id="startLearning">학습 시작</button></div>` : ""}
       <section><h3>개념 설명</h3><div class="concepts">${n.concepts.map(([name, text], i) =>
         `<div class="concept"><h4><i>${String(i + 1).padStart(2, "0")}</i>${esc(name)}</h4><p>${rich(text)}</p></div>`).join("")}</div></section>
       ${n.pre.length ? `<section><h3>먼저 공부하면 좋은 주제</h3><div class="links">${n.pre.map(p => linkBtn(byId[p])).join("")}</div></section>` : ""}
@@ -805,6 +806,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       </section>
       ${nx.length ? `<section><h3>다음으로 이어지는 주제</h3><div class="links">${nx.map(linkBtn).join("")}</div></section>` : ""}`;
     panel.querySelector("#pClose").onclick = () => select(null);
+    const startLearning = panel.querySelector("#startLearning");
+    if (startLearning) startLearning.onclick = () => {
+      store[n.id] = { ...store[n.id], started: true };
+      save(); refresh();
+    };
     panel.querySelectorAll(".opts input").forEach(inp => inp.addEventListener("change", () => {
       qui.picks[+inp.dataset.q] = +inp.value;
       const g = panel.querySelector("#qGrade");
@@ -818,7 +824,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       grade.onclick = () => keepScroll(() => {
         const ok = solved(n);
         n.quiz.forEach((q, i) => { if (qui.picks[i] === q.a) ok[i] = true; });
-        store[n.id] = { ok }; save();
+        store[n.id] = { started: true, ok }; save();
         qui.graded = true;
         refresh();
       });
@@ -998,7 +1004,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
         const inc = data.progress[n.id] && Array.isArray(data.progress[n.id].ok) ? data.progress[n.id].ok : [];
         const cur = (store[n.id] && store[n.id].ok) || [];
         const ok = n.quiz.map((_, i) => !!(cur[i] || inc[i]));
-        if (ok.some(Boolean)) store[n.id] = { ok };
+        const started = store[n.id]?.started === true || data.progress[n.id]?.started === true || ok.some(Boolean);
+        if (started) store[n.id] = { started: true, ok };
       }
       save(); refresh();
       say(`불러왔어요. 완료한 주제가 ${before}개에서 ${doneCount(store)}개가 됐어요.`);
