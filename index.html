@@ -5,15 +5,53 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>임베디드 스킬 트리</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#050914">
+<meta name="theme-color" content="#f6f4ef">
+<script>
+  // 화면이 그려지기 전에 테마를 정해 깜빡임을 막는다 (기본: 밝은 테마)
+  try { if (localStorage.getItem("emb-skill-tree-theme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+  document.documentElement.dataset.theme ||= "light";
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* 레이아웃: 별이 깔린 밤하늘. 가운데 기초 원에서 5개 분야가 가지처럼 뻗고, 분야마다 그 색의 성운 빛이 퍼진다.
-   마우스를 올린 분야만 성운과 주제가 밝게 빛나고, 나머지는 어둡게 가라앉는다. 원을 누르면 오른쪽(모바일은 아래) 패널이 열린다.
-   화면 설정과 관계없이 항상 어두운 테마. */
+/* 레이아웃: 가운데 기초 원에서 5개 분야가 가지처럼 뻗고, 분야마다 그 색의 빛이 퍼진다.
+   마우스를 올린 분야만 빛과 주제가 밝아지고, 나머지는 가라앉는다. 원을 누르면 오른쪽(모바일은 아래) 패널이 열린다.
+   테마: 기본은 밝은 종이 배경(모눈 점), 오른쪽 위 버튼으로 어두운 밤하늘(별·성운)로 바꿀 수 있다.
+   html 의 data-theme 값("light" / "dark")으로 정한다. */
 :root {
+  color-scheme: light;
+  --bg: #f6f4ef;        /* 종이 */
+  --bg2: #ffffff;       /* 패널 */
+  --bg3: #eef0f4;
+  --line: #dfe3ea;
+  --line2: #b8c0ce;
+  --fg: #18202e;
+  --muted: #5b6680;
+  --copper: #0a8a9e;    /* 강조색 (청록) */
+  --t-core: #18202e;
+  --t-ee: #b07f06;      /* 전기전자: 금빛 */
+  --t-arch: #6650dc;    /* 컴퓨터 구조: 보라 */
+  --t-hw: #cc5f16;      /* 하드웨어 시스템: 주황 */
+  --t-emb: #d1335f;     /* 임베디드 시스템: 장밋빛 */
+  --t-linux: #1786c8;   /* 임베디드 리눅스·소프트웨어: 하늘 */
+  --shadow: 0 8px 28px rgba(30,40,64,.12);
+  --pat-op: .10;
+  --neb-off: .22;
+  --neb-on: .6;
+  --keep: 66%;          /* 주제 묶음 색을 얼마나 그대로 쓸지 (나머지는 --ink 로 진하게 섞어 밝은 배경에서도 보이게) */
+  --ink: #1b2233;
+  --star: #7c879f;      /* 밝은 테마에서는 별 대신 연한 점 */
+  --star-op: .35;
+  --core1: #ffffff;     /* 가운데 원 안쪽 → 바깥 */
+  --core2: #e6eef6;
+  --sky:
+    radial-gradient(circle at 1px 1px, #c9cfdb 1px, transparent 1.4px) 0 0 / 26px 26px,
+    radial-gradient(ellipse at 50% 40%, #fbfaf7 0%, var(--bg) 70%);
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+:root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #050914;        /* 밤하늘 */
   --bg2: #0b1222;       /* 패널 */
@@ -33,30 +71,35 @@
   --pat-op: .07;     /* 분야별 회로 그림 진하기 (성운 뒤에 아주 연하게) */
   --neb-off: .32;    /* 마우스가 없는 분야의 성운 밝기 */
   --neb-on: .95;     /* 마우스를 올린 분야의 성운 밝기 */
-  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --keep: 100%;
+  --ink: #000;
+  --star: #fff;
+  --star-op: 1;
+  --core1: #13254d;
+  --core2: #070d1d;
+  /* 아주 먼 별: 화면에 고정된 작은 점들 (지도 위의 가까운 별은 SVG 로 따로 그린다) */
+  --sky:
+    radial-gradient(1px 1px at 12% 18%, #ffffff99 50%, transparent 51%) 0 0 / 230px 190px,
+    radial-gradient(1px 1px at 67% 32%, #ffffff88 50%, transparent 51%) 0 0 / 310px 270px,
+    radial-gradient(1px 1px at 38% 74%, #ffffff77 50%, transparent 51%) 0 0 / 270px 330px,
+    radial-gradient(1px 1px at 86% 81%, #ffffff88 50%, transparent 51%) 0 0 / 350px 290px,
+    radial-gradient(1px 1px at 22% 56%, #ffffff66 50%, transparent 51%) 0 0 / 190px 250px,
+    radial-gradient(1px 1px at 54% 9%, #ffffff77 50%, transparent 51%) 0 0 / 410px 370px,
+    radial-gradient(ellipse at 50% 40%, #0a1430 0%, var(--bg) 70%);
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  /* 아주 먼 별: 화면에 고정된 작은 점들 (지도 위의 가까운 별은 SVG 로 따로 그린다) */
-  background:
-    radial-gradient(1px 1px at 12% 18%, #ffffff99 50%, transparent 51%),
-    radial-gradient(1px 1px at 67% 32%, #ffffff88 50%, transparent 51%),
-    radial-gradient(1px 1px at 38% 74%, #ffffff77 50%, transparent 51%),
-    radial-gradient(1px 1px at 86% 81%, #ffffff88 50%, transparent 51%),
-    radial-gradient(1px 1px at 22% 56%, #ffffff66 50%, transparent 51%),
-    radial-gradient(1px 1px at 54% 9%, #ffffff77 50%, transparent 51%),
-    radial-gradient(ellipse at 50% 40%, #0a1430 0%, var(--bg) 70%);
-  background-size: 230px 190px, 310px 270px, 270px 330px, 350px 290px, 190px 250px, 410px 370px, 100% 100%;
+  background: var(--sky);
+  background-color: var(--bg);
   color: var(--fg);
   font: 14px/1.6 var(--f-body);
   overflow: hidden;
   display: flex; flex-direction: column;
 }
 button { font: inherit; color: inherit; cursor: pointer; }
-button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px; }
 [hidden] { display: none !important; }
 
 /* ── 상단 바 ── */
@@ -106,7 +149,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .core-disc { fill: url(#core-grad); stroke: var(--copper); stroke-width: 2.5; opacity: .95; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--copper) 55%, transparent)); }
 .nebula { opacity: var(--neb-off); transition: opacity .6s ease; pointer-events: none; }
 .nebula.on { opacity: var(--neb-on); }
-.star { fill: #fff; pointer-events: none; }
+.stars { opacity: var(--star-op); }
+.star { fill: var(--star); pointer-events: none; }
 .star.tw { animation: twinkle 3.2s ease-in-out infinite; }
 @keyframes twinkle { 0%, 100% { opacity: var(--so); } 50% { opacity: .08; } }
 @media (prefers-reduced-motion: reduce) { .star.tw { animation: none; } .nebula { transition: none; } }
@@ -261,6 +305,91 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .btn.warn { border-color: var(--t-emb); color: var(--t-emb); }
 .btn:disabled { opacity: .45; cursor: default; }
 
+/* ── 개념별 ‘질문’ 버튼, 좁은 화면용 ‘AI 채팅’ 버튼 ── */
+.concept h4 .ask { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 500; border: 1px solid var(--line); background: none; border-radius: 99px; padding: 1px 9px; color: var(--muted); }
+.concept h4 .ask:hover { border-color: var(--tc); color: var(--fg); }
+.chat-toggle { display: none; }
+.p-head .chat-toggle { flex: none; margin-top: 2px; padding: 6px 12px; border-color: var(--tc); color: var(--fg); font-weight: 700; }
+
+/* 공부 노트 (AI 대화를 정리한 메모) */
+.memo { margin-top: 18px; border: 1px solid var(--tc); border-radius: 12px; padding: 12px 14px; background: color-mix(in srgb, var(--tc) 6%, var(--bg2)); }
+.memo h3 { margin-bottom: 6px !important; }
+.memo .p-actions { margin-top: 10px; }
+.memo .p-actions:empty { display: none; }
+.memo .muted { color: var(--muted); font-size: 13px; margin: 0; }
+
+/* 마크다운으로 받은 글 */
+.md { font-size: 14.5px; line-height: 1.75; overflow-wrap: anywhere; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol, .md pre { margin: 0 0 10px; }
+.md ul, .md ol { padding-left: 20px; }
+.md li + li { margin-top: 3px; }
+.md h5 { font-size: 14.5px; margin: 14px 0 6px; }
+.md code { font-variant-ligatures: none; font-family: var(--f-mono); font-size: .88em; background: var(--bg3); padding: 1px 5px; border-radius: 4px; }
+.md pre { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.6; white-space: pre; }
+
+/* ── AI 채팅창: 넓은 화면에서는 설명 패널 오른쪽에 붙는다 ── */
+:root { --chat-w: 400px; }
+#chat {
+  position: absolute; top: 0; right: 0; bottom: 0; width: var(--chat-w); z-index: 5;
+  display: flex; flex-direction: column;
+  background: var(--bg2); border-left: 1px solid var(--line); box-shadow: var(--shadow);
+  animation: slidein .22s ease-out;
+}
+@media (prefers-reduced-motion: reduce) { #chat { animation: none; } }
+#chat .c-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px 12px; border-bottom: 1px solid var(--line); }
+#chat .c-title { flex: 1; min-width: 0; }
+#chat .c-title small { display: block; font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .12em; color: var(--tc); }
+#chat .c-title h2 { margin: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#chat .c-back { display: none; }
+#chat .c-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 18px 18px; }
+@media (min-width: 1100px) {
+  #stage.chat-on #panel { right: var(--chat-w); width: min(470px, calc(100% - var(--chat-w))); box-shadow: none; }
+}
+@media (max-width: 1099px) {
+  /* 좁으면 채팅창은 평소에 숨기고, ‘AI 채팅’ 버튼을 누르면 설명 패널 위에 연다 */
+  #chat { width: min(500px, 100%); }
+  #stage:not(.chat-open) #chat { display: none; }
+  #chat .c-back { display: grid; }
+  .chat-toggle { display: inline-block; }
+}
+
+/* 채팅 내용 */
+.chat-log { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+.msg { display: flex; flex-direction: column; gap: 3px; }
+.msg .who { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .1em; color: var(--muted); }
+.msg.user { align-items: flex-end; }
+.msg.user .bubble { background: color-mix(in srgb, var(--tc) 14%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--tc) 40%, transparent); border-radius: 14px 14px 4px 14px; padding: 8px 12px; max-width: 88%; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14.5px; }
+.msg.ai .bubble { border-left: 2px solid var(--tc); padding: 2px 0 2px 12px; }
+.msg.ai .bubble.thinking { color: var(--muted); font-size: 13.5px; }
+.cursor { display: inline-block; width: 7px; height: 1em; vertical-align: -2px; background: var(--tc); margin-left: 2px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+.chat-err { border: 1px solid var(--t-emb); color: var(--t-emb); border-radius: 10px; padding: 8px 12px; font-size: 13.5px; }
+.chat-empty { color: var(--muted); font-size: 13.5px; }
+.chat-empty p { margin: 0 0 10px; }
+.suggest { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.suggest button { border: 1px solid var(--line2); background: var(--bg2); border-radius: 14px; padding: 6px 12px; font-size: 13px; text-align: left; }
+.suggest button:hover { border-color: var(--tc); }
+#chat .composer { padding: 12px 18px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--bg2); border-top: 1px solid var(--line); }
+.composer .row { display: flex; gap: 8px; align-items: flex-end; }
+.composer textarea { flex: 1; min-width: 0; resize: none; font: inherit; font-size: 14.5px; line-height: 1.5; color: var(--fg); background: var(--bg); border: 1px solid var(--line2); border-radius: 10px; padding: 8px 10px; max-height: 160px; }
+.composer textarea:focus { border-color: var(--tc); outline: none; }
+.composer .hint { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); }
+.ai-setup { margin-top: 16px; border: 1px solid var(--line2); border-radius: 12px; padding: 14px; font-size: 13.5px; }
+.ai-setup p { margin: 0 0 10px; color: var(--muted); line-height: 1.65; }
+.ai-setup p b { color: var(--fg); }
+.ai-setup a { color: var(--copper); }
+.field { display: flex; gap: 8px; flex-wrap: wrap; }
+.field input, .ai-opts select { flex: 1; min-width: 0; font: inherit; font-size: 13.5px; color: var(--fg); background: var(--bg); border: 1px solid var(--line2); border-radius: 8px; padding: 7px 10px; }
+.field input:focus { border-color: var(--tc); outline: none; }
+.ai-opts { margin-top: 18px; font-size: 13px; color: var(--muted); }
+.ai-opts summary { cursor: pointer; font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; }
+.ai-opts .body { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+.ai-opts label { display: flex; flex-direction: column; gap: 4px; }
+
 /* ── 도움말 ── */
 #help { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(3px); }
 .dialog { width: min(520px, 100%); max-height: 100%; overflow-y: auto; background: var(--bg2); border: 1px solid var(--line2); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
@@ -289,7 +418,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   #hours span:first-child, #hours .sep { display: none; }
   #panel { top: auto; left: 0; width: 100%; max-height: 72%; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
     padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); animation-name: slideup; }
+  #chat { top: auto; left: 0; width: 100%; height: 72%; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; animation-name: slideup; }
   @keyframes slideup { from { transform: translateY(30px); opacity: 0; } }
+}
+@media (max-width: 520px) {
+  /* 휴대폰: 머리줄에 자리가 모자라 이름 글자와 진행 막대는 숨기고 아이콘과 숫자만 둔다 */
+  .brand > div, .track-bar { display: none; }
 }
 </style>
 </head>
@@ -312,6 +446,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     <div class="track-bar" aria-hidden="true"><i id="progBar"></i></div>
     <span class="count" id="hours">0h / 0h</span>
   </div>
+  <button class="icon-btn" id="themeBtn" aria-label="밝은/어두운 화면 바꾸기" title="밝은/어두운 화면 바꾸기"></button>
   <button class="icon-btn" id="helpBtn" aria-label="사용법과 진행 상황 백업" title="사용법 · 진행 상황 백업">?</button>
 </header>
 
@@ -349,7 +484,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     </button>
   </div>
 
-  <aside id="panel" hidden aria-live="polite"></aside>
+  <aside id="panel" hidden></aside>
+  <aside id="chat" hidden aria-label="AI 채팅"></aside>
 </main>
 
 <div id="help" hidden>
@@ -361,11 +497,12 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       <li><div><b>가운데 START 에서 출발</b><span>점선 원 안쪽이 기초, 바깥쪽이 심화입니다. 각 분야의 첫 원은 바로 시작할 수 있습니다.</span></div></li>
       <li><div><b>원을 눌러 내용 보기</b><span>‘학습 시작’을 누르면 ‘진행 중’으로 표시됩니다. 개념마다 설명이 있고, 추천 자료와 확인 문제 5개가 이어집니다.</span></div></li>
       <li><div><b>확인 문제 5개를 모두 맞히면 완료</b><span>틀린 문제는 해설을 보고 다시 풀 수 있습니다. 완료한 주제와 이어진 다음 주제가 밝아집니다. 진행 상황은 이 브라우저에 자동 저장됩니다.</span></div></li>
+      <li><div><b>모르는 건 옆의 AI 채팅창에 물어보기</b><span>주제를 열면 설명 옆에 그 주제 전용 AI 채팅창이 열립니다. 다른 주제는 대화가 따로 남고, 다른 주제로 넘어가면 대화를 ‘공부 노트’로 정리해 설명 맨 위에 남깁니다. Claude API 키가 필요합니다.</span></div></li>
     </ol>
     <p>선은 권장 순서일 뿐 잠금이 아닙니다. 어떤 원이든 바로 열어 볼 수 있습니다.</p>
     <div class="backup">
       <p class="eyebrow">진행 상황 백업</p>
-      <p>진행 상황은 이 브라우저에만 저장됩니다. 파일로 저장해 두면 다른 브라우저나 컴퓨터에서 불러올 수 있습니다. 불러오면 지금 기록과 합쳐지고, 둘 중 한쪽에서라도 맞힌 문제는 맞힌 것으로 남습니다.</p>
+      <p>진행 상황과 AI 대화·공부 노트는 이 브라우저에만 저장됩니다. 파일로 저장해 두면 다른 브라우저나 컴퓨터에서 불러올 수 있습니다(API 키는 파일에 넣지 않습니다). 불러오면 지금 기록과 합쳐지고, 둘 중 한쪽에서라도 맞힌 문제는 맞힌 것으로 남습니다.</p>
       <div class="row">
         <button class="btn" id="exportBtn">파일로 저장</button>
         <button class="btn" id="importBtn">파일 불러오기</button>
@@ -409,6 +546,137 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   let store = {};
   try { store = JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; } catch (e) { store = {}; }
   const save = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} };
+  const lsGet = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
+  const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} };
+
+  // ── AI 대화 저장소 ──
+  // chats[주제 id] = { msgs: [{ role: "user" | "assistant", content }], memo: { text, n, at } }
+  //   user 의 content 는 글자, assistant 의 content 는 API 가 돌려준 블록 배열 그대로 (다음 질문 때 그대로 다시 보낸다)
+  //   memo = 공부 노트. n = 노트를 만들 때까지의 메시지 수 (그 뒤로 대화가 늘었으면 다시 정리한다)
+  const CHAT_KEY = "emb-skill-tree-chat-claude-v1", AI_KEY = "emb-skill-tree-ai-key", AI_MODEL = "emb-skill-tree-ai-model";
+  let chats = {};
+  try { chats = JSON.parse(localStorage.getItem(CHAT_KEY) || "{}") || {}; } catch (e) { chats = {}; }
+  const saveChats = () => { try { localStorage.setItem(CHAT_KEY, JSON.stringify(chats)); return true; } catch (e) { return false; } };
+
+  // ── Claude API ──
+  // 서버 없이 브라우저에서 바로 부른다. API 키는 이 브라우저에만 저장되고 Anthropic 으로만 보낸다.
+  const MODELS = [
+    { id: "claude-opus-5-5", name: "Claude Opus 5.5 (추천)", fallback: true },
+    { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5 (더 저렴)", fallback: true },
+    { id: "claude-haiku-5-5", name: "Claude Haiku 5.5 (가장 저렴·빠름)", fallback: false },
+  ];
+  const curModel = () => MODELS.find(m => m.id === lsGet(AI_MODEL)) || MODELS[0];
+  const textOf = c => typeof c === "string" ? c : (c || []).filter(b => b.type === "text").map(b => b.text).join("");
+  const apiError = (status, message, type) => Object.assign(new Error(message || ""), { status, type });
+  // 스트리밍으로 받으며 글이 올 때마다 onText(지금까지의 글) 를 부른다. 끝나면 { blocks, stop } 을 돌려준다.
+  async function callClaude({ system, messages, onText, signal, maxTokens = 64000 }) {
+    const m = curModel();
+    const headers = {
+      "content-type": "application/json",
+      "x-api-key": lsGet(AI_KEY),
+      "anthropic-version": "2026-10-21",
+      "anthropic-dangerous-direct-browser-access": "true",
+    };
+    const body = {
+      model: m.id, max_tokens: maxTokens, stream: true, system, messages,
+      output_config: { effort: "medium" },
+      cache_control: { type: "ephemeral" },   // 같은 대화를 이어 보낼 때 앞부분을 캐시해 요금을 줄인다
+    };
+    // 안전 필터가 답을 막으면 서버가 알아서 다른 모델로 다시 시도하게 한다
+    if (m.fallback) { headers["anthropic-beta"] = "server-side-fallback-2026-07-01"; body.fallbacks = "default"; }
+    const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: JSON.stringify(body), signal });
+    if (!res.ok) {
+      let err = {};
+      try { err = (await res.json()).error || {}; } catch (e) {}
+      throw apiError(res.status, err.message, err.type);
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    const blocks = [];
+    let buf = "", stop = null;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      // 줄바꿈 \r\n 이 조각 경계에서 갈라질 수 있으므로 버퍼 전체에서 바꾼다
+      buf = (buf + dec.decode(value, { stream: true })).replace(/\r\n/g, "\n");
+      let cut;
+      while ((cut = buf.indexOf("\n\n")) >= 0) {
+        const data = buf.slice(0, cut).split("\n").filter(l => l.startsWith("data:")).map(l => l.slice(5).trimStart()).join("\n");
+        buf = buf.slice(cut + 2);
+        if (!data) continue;
+        let ev;
+        try { ev = JSON.parse(data); } catch (e) { continue; }
+        if (ev.type === "content_block_start") blocks[ev.index] = { ...ev.content_block };
+        else if (ev.type === "content_block_delta" && blocks[ev.index]) {
+          const b = blocks[ev.index], d = ev.delta;
+          if (d.type === "text_delta") { b.text = (b.text || "") + d.text; if (onText) onText(textOf(blocks.filter(Boolean))); }
+          else if (d.type === "thinking_delta") b.thinking = (b.thinking || "") + d.thinking;
+          else if (d.type === "signature_delta") b.signature = (b.signature || "") + d.signature;
+        }
+        else if (ev.type === "message_delta" && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
+        else if (ev.type === "error") throw apiError(0, ev.error && ev.error.message, ev.error && ev.error.type);
+      }
+    }
+    return { blocks: blocks.filter(Boolean), stop };
+  }
+  // 다시 보낼 블록 고르기: 다른 모델로 넘어간 경우(fallback 블록) 그 앞의 생각 블록은 빼야 하고, 빈 글 블록도 뺀다
+  function echoable(blocks) {
+    const last = blocks.map(b => b.type).lastIndexOf("fallback");
+    return blocks.filter((b, i) => (i > last || !["thinking", "redacted_thinking", "tool_use", "server_tool_use"].includes(b.type))
+      && !(b.type === "text" && !b.text));
+  }
+  function errText(e) {
+    const s = e.status, msg = e.message || "";
+    if (msg === "refusal") return "Claude 가 이 질문에는 답하지 않았어요. 표현을 바꿔 다시 물어봐 주세요.";
+    if (msg === "empty") return "AI 의 답이 비어 있어요. 다시 보내 주세요.";
+    if (s === 401) return "API 키가 맞지 않아요. 아래 ‘AI 설정’에서 키를 지우고 다시 넣어 주세요.";
+    if (s === 403) return "이 API 키로는 이 모델을 쓸 수 없어요. 아래 ‘AI 설정’에서 다른 모델을 골라 보세요.";
+    if (s === 404) return "모델을 찾지 못했어요. 아래 ‘AI 설정’에서 다른 모델을 골라 보세요.";
+    if (s === 400 && /credit/i.test(msg)) return "API 크레딧이 부족해요. platform.claude.com 의 Billing 에서 충전해 주세요.";
+    if (s === 429) return "요청이 너무 많아요. 잠시 뒤에 다시 보내 주세요.";
+    if (s === 529 || /overloaded/i.test(e.type || "")) return "Anthropic 서버가 붐벼요. 잠시 뒤에 다시 보내 주세요.";
+    if (s >= 500) return `Anthropic 서버에 문제가 있어요 (${s}). 잠시 뒤에 다시 보내 주세요.`;
+    if (e instanceof TypeError) return "Anthropic 서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.";
+    return `요청이 실패했어요${s ? ` (${s})` : ""}${msg ? ": " + msg : ""}`;
+  }
+
+  // ── 마크다운 (AI 답변·공부 노트용, 문단·목록·제목·굵게·코드만) ──
+  function md(src) {
+    const lines = String(src).replace(/\r/g, "").split("\n");
+    const inline = s => s.split(/(`[^`]+`)/).map((p, i) => i % 2
+      ? `<code>${esc(p.slice(1, -1))}</code>`
+      : esc(p).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")).join("");
+    let out = "", para = [], list = null;
+    const endPara = () => { if (para.length) { out += `<p>${para.map(inline).join("<br>")}</p>`; para = []; } };
+    const flush = () => { endPara(); if (list) { out += `</${list}>`; list = null; } };
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (/^\s*```/.test(l)) {
+        flush();
+        const code = [];
+        for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) code.push(lines[i]);
+        out += `<pre><code>${esc(code.join("\n"))}</code></pre>`;
+        continue;
+      }
+      if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l)) { flush(); continue; }
+      const h = l.match(/^#{1,6}\s+(.*)/);
+      if (h) { flush(); out += `<h5>${inline(h[1])}</h5>`; continue; }
+      const ul = l.match(/^\s*[-*•]\s+(.*)/), ol = l.match(/^\s*(\d+)[.)]\s+(.*)/);
+      if (ul || ol) {
+        const kind = ul ? "ul" : "ol";
+        endPara();
+        if (list !== kind) { if (list) out += `</${list}>`; out += kind === "ol" && ol[1] !== "1" ? `<ol start="${+ol[1]}">` : `<${kind}>`; list = kind; }
+        out += `<li>${inline(ul ? ul[1] : ol[2])}</li>`;
+        continue;
+      }
+      if (!l.trim()) { flush(); continue; }
+      if (list && /^\s{2,}\S/.test(l)) { out = out.replace(/<\/li>$/, `<br>${inline(l.trim())}</li>`); continue; }
+      if (list) flush();
+      para.push(l);
+    }
+    flush();
+    return out;
+  }
+  const withCursor = html => html ? html.replace(/(<\/[a-z0-9]+>)*$/, m => `<span class="cursor"></span>${m}`) : `<span class="cursor"></span>`;
 
   // ── 상태 계산 ──
   // store[id] = { started: 학습 시작 여부, ok: [문항별 정답 여부] }
@@ -425,7 +693,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   const GROUPS = window.GROUPS || [];
   const groupOf = {};
   for (const g of GROUPS) for (const id of g.ids) groupOf[id] = g;
-  const tcol = n => groupOf[n.id] ? groupOf[n.id].color : `var(--t-${n.t})`;
+  // 밝은 테마에서는 묶음 색을 진한 색(--ink)과 섞어 흰 배경에서도 잘 보이게 한다 (어두운 테마는 --keep: 100% 라 원래 색)
+  const inked = hex => `color-mix(in srgb, ${hex} var(--keep), var(--ink))`;
+  const tcol = n => groupOf[n.id] ? inked(groupOf[n.id].color) : `var(--t-${n.t})`;
 
   // ── 좌표 ──
   const rad = deg => (deg - 90) * Math.PI / 180;
@@ -539,7 +809,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     // 성운: 분야 색이 가운데에서 바깥으로 옅어지는 빛
     + Object.keys(T).filter(k => k !== "core").map(k =>
       `<radialGradient id="neb-${k}"><stop offset="0" stop-color="var(--t-${k})" stop-opacity=".42"/><stop offset=".45" stop-color="var(--t-${k})" stop-opacity=".14"/><stop offset="1" stop-color="var(--t-${k})" stop-opacity="0"/></radialGradient>`).join("")
-    + `<radialGradient id="core-grad"><stop offset="0" stop-color="#13254d"/><stop offset="1" stop-color="#070d1d"/></radialGradient>`;
+    + `<radialGradient id="core-grad"><stop offset="0" style="stop-color: var(--core1)"/><stop offset="1" style="stop-color: var(--core2)"/></radialGradient>`;
 
   // 트랙 부채꼴
   const sectors = Object.entries(T).filter(([k]) => k !== "core");
@@ -557,7 +827,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   }
   // 별: 지도와 함께 움직이는 가까운 별들. 같은 자리에 나오도록 고정된 난수를 쓴다.
   // 일부는 천천히 반짝인다.
-  const starLayer = el("g", {}, bg);
+  const starLayer = el("g", { class: "stars" }, bg);
   let seed = 20260411;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
   for (let i = 0; i < 1400; i++) {
@@ -702,7 +972,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
       const ns = g.ids.map(id => byId[id]).filter(Boolean);
       const li = document.createElement("li");
       li.tabIndex = 0;
-      li.style.setProperty("--gc", g.color);
+      li.style.setProperty("--gc", inked(g.color));
       li.innerHTML = `<i></i><span></span><b>${ns.filter(isDone).length}/${ns.length}</b>`;
       li.querySelector("span").textContent = g.name;
       const on = () => highlightGroup(g.key), offFn = () => highlightGroup(null);
@@ -720,14 +990,22 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function select(id) {
+    // 다른 주제로 넘어가거나 패널을 닫으면, 방금 보던 주제의 AI 대화를 공부 노트로 정리한다
+    if (selected && selected !== id) { const prev = selected; setTimeout(() => makeMemo(prev), 0); }
+    const changed = id !== selected;
     selected = id;
     for (const k in nodeEls) nodeEls[k].g.classList.toggle("sel", k === id);
     eL.classList.toggle("focus", !!id);
     for (const e of edges) e.path.classList.toggle("hl", !!id && (e.from.id === id || e.to.id === id));
-    if (!id) { panel.hidden = true; return; }
+    if (!id) { panel.hidden = true; renderChat(null); return; }
     renderPanel(byId[id]);
     panel.hidden = false;
-    panel.scrollTop = 0;
+    if (changed) {
+      panel.scrollTop = 0;
+      setChatOpen(false);
+      renderChat(byId[id]);
+      chatToEnd();
+    }
   }
 
   // 퀴즈 화면 상태 (지금 열린 주제에서 고른 답, 채점 여부)
@@ -777,6 +1055,19 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     const trackName = n.t === "core" ? "출발점" : T[n.t].name;
     const linkBtn = m => `<button data-go="${m.id}" style="--tc:${tcol(m)}"><i class="dotc ${isDone(m) ? "" : "off"}"></i>${esc(m.title)}<span class="chip" style="margin-left:auto">${STATE_KO[state(m)]}</span></button>`;
     const nx = next(n.id);
+    const study = `
+      <div id="memoBox">${memoHtml(n)}</div>
+      <section><h3>개념 설명</h3><div class="concepts">${n.concepts.map(([name, text], i) =>
+        `<div class="concept"><h4><i>${String(i + 1).padStart(2, "0")}</i>${esc(name)}<button class="ask" data-ask="${i}" title="이 개념을 AI 에게 묻기">질문</button></h4><p>${rich(text)}</p></div>`).join("")}</div></section>
+      ${n.pre.length ? `<section><h3>먼저 공부하면 좋은 주제</h3><div class="links">${n.pre.map(p => linkBtn(byId[p])).join("")}</div></section>` : ""}
+      <section><h3>추천 자료</h3><ul class="res">${n.res.map(([name, url]) => url
+        ? `<li><a href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a></li>`
+        : `<li><span class="nolink">${esc(name)}</span></li>`).join("")}</ul></section>
+      <section id="quizSec"><h3><span>확인 문제</span><span>${done} / ${n.quiz.length} 정답</span></h3>
+        <div class="quiz">${qhtml}${result}</div>
+        <div class="p-actions">${actions}</div>
+      </section>
+      ${nx.length ? `<section><h3>다음으로 이어지는 주제</h3><div class="links">${nx.map(linkBtn).join("")}</div></section>` : ""}`;
     panel.innerHTML = `
       <div class="p-head">
         <div style="flex:1;min-width:0">
@@ -790,22 +1081,15 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
           </div>
           <h2>${esc(n.title)}</h2>
         </div>
+        <button class="btn chat-toggle" id="chatOpen">AI 채팅</button>
         <button class="icon-btn" id="pClose" aria-label="닫기">✕</button>
       </div>
       <p class="p-sum">${esc(n.sum)}</p>
       ${s === "available" || s === "locked" ? `<div class="p-actions"><button class="btn primary" id="startLearning">학습 시작</button></div>` : ""}
-      <section><h3>개념 설명</h3><div class="concepts">${n.concepts.map(([name, text], i) =>
-        `<div class="concept"><h4><i>${String(i + 1).padStart(2, "0")}</i>${esc(name)}</h4><p>${rich(text)}</p></div>`).join("")}</div></section>
-      ${n.pre.length ? `<section><h3>먼저 공부하면 좋은 주제</h3><div class="links">${n.pre.map(p => linkBtn(byId[p])).join("")}</div></section>` : ""}
-      <section><h3>추천 자료</h3><ul class="res">${n.res.map(([name, url]) => url
-        ? `<li><a href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a></li>`
-        : `<li><span class="nolink">${esc(name)}</span></li>`).join("")}</ul></section>
-      <section id="quizSec"><h3><span>확인 문제</span><span>${done} / ${n.quiz.length} 정답</span></h3>
-        <div class="quiz">${qhtml}${result}</div>
-        <div class="p-actions">${actions}</div>
-      </section>
-      ${nx.length ? `<section><h3>다음으로 이어지는 주제</h3><div class="links">${nx.map(linkBtn).join("")}</div></section>` : ""}`;
+      ${study}`;
     panel.querySelector("#pClose").onclick = () => select(null);
+    panel.querySelector("#chatOpen").onclick = () => setChatOpen(true);
+    panel.querySelectorAll("[data-ask]").forEach(b => b.onclick = () => askConcept(n, n.concepts[+b.dataset.ask][0]));
     const startLearning = panel.querySelector("#startLearning");
     if (startLearning) startLearning.onclick = () => {
       store[n.id] = { ...store[n.id], started: true };
@@ -833,8 +1117,266 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     if (reset) reset.onclick = () => keepScroll(() => { delete store[n.id]; save(); qui = { id: n.id, picks: {}, graded: false, round: qui.round + 1 }; refresh(); });
   }
 
+  // ── AI 채팅창 (설명 패널 옆) ──
+  // 주제(원) 하나에 대화 하나. 다른 주제를 열면 그 주제의 대화로 바뀐다.
+  // 넓은 화면: 설명 패널 오른쪽에 늘 붙어 있다. 좁은 화면: 패널의 'AI 채팅' 버튼으로 패널 위에 연다.
+  const chatEl = document.getElementById("chat"), mainEl = document.getElementById("stage");
+  const wide = () => matchMedia("(min-width: 1100px)").matches;
+  const drafts = {};     // 주제별로 쓰다 만 질문
+  const live = {};       // 지금 답을 받고 있는 주제: { q: 질문, text: 지금까지 받은 답, ctrl: 멈추기용 }
+  const aiErr = {};      // 주제별 마지막 오류 문구
+  const memoBusy = {}, memoErr = {};
+  let optsOpen = false;  // 'AI 설정' 펼침 여부
+  const levelOf = n => n.d === 0 ? "출발점" : n.d >= ADV ? "심화" : "기초";
+  const userMsg = text => ({ role: "user", content: text });
+
+  function tutorPrompt(n) {
+    const trackName = n.t === "core" ? "출발점" : T[n.t].name;
+    return `너는 혼자 임베디드를 공부하는 사람을 돕는 튜터다. 학습자는 '임베디드 스킬 트리'라는 공부 지도에서 아래 주제 하나를 공부하는 중이고, 이 대화는 이 주제에 대해서만 이어진다.
+
+주제: ${n.title} (${trackName}, ${levelOf(n)})
+요약: ${n.sum}
+학습자가 옆 화면에서 보고 있는 개념 설명:
+${n.concepts.map(([a, b], i) => `${i + 1}. ${a} — ${b}`).join("\n")}
+
+답하는 방법:
+- 한국어로 답한다. 학습자가 이미 본 설명을 되풀이하기보다 헷갈리는 부분을 메워 준다.
+- 핵심을 먼저 짧게 말하고, 필요하면 C 코드, 레지스터 예시, 회로나 신호의 흐름, 쉬운 비유로 풀어 준다.
+- 질문이 이 주제와 거리가 멀면 짧게 답하고, 지도에서 어느 쪽 주제와 이어지는지 알려 준다.
+- 확인 문제의 정답을 물으면 바로 알려 주기보다 스스로 풀 수 있는 단서를 먼저 준다. 다시 물으면 알려 준다.
+- 칩이나 보드마다 다른 값(레지스터 주소, 클럭, 전압 등)은 단정하지 말고 데이터시트를 확인하라고 한다.
+- 서식은 문단, 목록, **굵게**, \`코드\`, 코드 블록만 쓴다. 표와 이미지는 쓰지 않는다.`;
+  }
+  const suggestions = n => [
+    `‘${n.title}’ 주제를 처음 배우는 사람 눈높이로 설명해 줘.`,
+    `‘${n.concepts[0][0]}’ 개념을 예시로 보여 줘.`,
+    `이 주제를 실무에서 다룰 때 자주 하는 실수는?`,
+  ];
+
+  // 채팅창 보이기/숨기기. open = 좁은 화면에서 패널 위에 펼칠지
+  function setChatOpen(open) {
+    mainEl.classList.toggle("chat-open", !!open);
+    if (open) focusComposer();
+  }
+  function renderChat(n) {
+    if (!n) { chatEl.hidden = true; mainEl.classList.remove("chat-on", "chat-open"); return; }
+    chatEl.hidden = false;
+    mainEl.classList.add("chat-on");
+    chatEl.style.setProperty("--tc", tcol(n));
+    const id = n.id, hasKey = !!lsGet(AI_KEY);
+    const head = `
+      <div class="c-head">
+        <button class="icon-btn c-back" id="chatBack" aria-label="설명으로 돌아가기">←</button>
+        <div class="c-title"><small>AI 채팅</small><h2>${esc(n.title)}</h2></div>
+      </div>`;
+    if (!hasKey) {
+      chatEl.innerHTML = head + `
+        <div class="c-body"><div class="ai-setup">
+          <p><b>AI 채팅</b>은 Anthropic 의 Claude 를 씁니다. API 키를 한 번 넣어 두면 모든 주제에서 쓸 수 있어요.</p>
+          <p>키는 <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">platform.claude.com</a> 에서 만들 수 있고, 질문한 만큼 요금이 나갑니다 (claude.ai 구독과는 따로 결제돼요).</p>
+          <p>키는 이 브라우저에만 저장되어 Anthropic 으로만 보내지며, 진행 상황 백업 파일에도 들어가지 않습니다.</p>
+          <div class="field">
+            <input type="password" id="aiKeyIn" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" aria-label="Anthropic API 키">
+            <button class="btn primary" id="aiKeySave">저장</button>
+          </div>
+        </div></div>`;
+      bindChat(n);
+      return;
+    }
+    const msgs = (chats[id] && chats[id].msgs) || [], L = live[id];
+    const bubble = (role, text) => role === "user"
+      ? `<div class="msg user"><span class="who">나</span><div class="bubble">${esc(text)}</div></div>`
+      : `<div class="msg ai"><span class="who">AI</span><div class="bubble md">${md(text)}</div></div>`;
+    let log = msgs.map(m => bubble(m.role, textOf(m.content))).join("");
+    if (L) log += bubble("user", L.q) + `<div class="msg ai"><span class="who">AI</span>${L.text
+      ? `<div class="bubble md" id="liveBubble">${withCursor(md(L.text))}</div>`
+      : `<div class="bubble thinking" id="liveBubble" role="status">생각하는 중…</div>`}</div>`;
+    if (!msgs.length && !L) log = `
+      <div class="chat-empty">
+        <p>‘${esc(n.title)}’ 에 대해 궁금한 걸 물어보세요. 이 대화는 이 주제에만 남고, 다른 주제를 열면 그 주제의 대화로 바뀝니다. 다른 주제로 넘어가면 이 대화를 공부 노트로 정리해 설명 맨 위에 남겨 둡니다.</p>
+        <div class="suggest">${suggestions(n).map(s => `<button data-suggest>${esc(s)}</button>`).join("")}</div>
+      </div>`;
+    if (aiErr[id]) log += `<div class="chat-err" role="alert">${esc(aiErr[id])}</div>`;
+    const cur = curModel();
+    chatEl.innerHTML = head + `
+      <div class="c-body" id="chatBody">
+        <div class="chat-log">${log}</div>
+        <details class="ai-opts" id="aiOpts" ${optsOpen ? "open" : ""}><summary>AI 설정</summary><div class="body">
+          <label>모델<select id="aiModel">${MODELS.map(m => `<option value="${m.id}" ${m.id === cur.id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" id="chatClear" ${L || !msgs.length ? "disabled" : ""}>이 주제 대화 지우기</button>
+            <button class="btn" id="aiForget">API 키 지우기</button>
+          </div>
+        </div></details>
+      </div>
+      <div class="composer">
+        <div class="row">
+          <textarea id="chatIn" rows="1" placeholder="이 주제에 대해 물어보기" aria-label="AI 에게 질문"></textarea>
+          <button class="btn primary" id="chatSend">${L ? "멈추기" : "보내기"}</button>
+        </div>
+        <p class="hint">Enter 보내기 · Shift+Enter 줄바꿈 · ${esc(cur.name.replace(/ \(.*\)$/, ""))}</p>
+      </div>`;
+    bindChat(n);
+  }
+
+  function bindChat(n) {
+    const id = n.id;
+    chatEl.querySelector("#chatBack").onclick = () => setChatOpen(false);
+    const keyIn = chatEl.querySelector("#aiKeyIn");
+    if (keyIn) {
+      const saveKey = () => { const v = keyIn.value.trim(); if (!v) { keyIn.focus(); return; } lsSet(AI_KEY, v); renderChat(n); renderMemo(n); focusComposer(); };
+      chatEl.querySelector("#aiKeySave").onclick = saveKey;
+      keyIn.onkeydown = e => { if (e.key === "Enter") saveKey(); };
+      return;
+    }
+    const ta = chatEl.querySelector("#chatIn");
+    const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 160) + "px"; };
+    ta.value = drafts[id] || "";
+    grow();
+    ta.oninput = () => { drafts[id] = ta.value; grow(); };
+    // 한글 입력 중(조합 중)의 Enter 는 글자 확정이므로 보내지 않는다
+    ta.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); send(n); } };
+    chatEl.querySelector("#chatSend").onclick = () => live[id] ? live[id].ctrl.abort() : send(n);
+    chatEl.querySelectorAll("[data-suggest]").forEach(b => b.onclick = () => { drafts[id] = b.textContent; send(n); });
+    chatEl.querySelector("#aiOpts").ontoggle = e => { optsOpen = e.target.open; };
+    chatEl.querySelector("#aiModel").onchange = e => { lsSet(AI_MODEL, e.target.value); showChat(id); };
+    const clear = chatEl.querySelector("#chatClear");
+    clear.onclick = () => {
+      if (!clear.dataset.armed) { clear.dataset.armed = "1"; clear.textContent = "한 번 더 누르면 대화와 공부 노트가 지워집니다"; return; }
+      delete chats[id]; delete aiErr[id]; saveChats(); renderChat(n); renderMemo(n);
+    };
+    chatEl.querySelector("#aiForget").onclick = () => { lsSet(AI_KEY, ""); renderChat(n); renderMemo(n); };
+  }
+
+  const focusComposer = () => { const t = chatEl.querySelector("#chatIn") || chatEl.querySelector("#aiKeyIn"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } };
+  const chatBody = () => chatEl.querySelector("#chatBody");
+  const chatToEnd = () => { const b = chatBody(); if (b) b.scrollTop = b.scrollHeight; };
+  // 지금 열린 주제의 채팅창을 다시 그린다 (입력칸에 있던 커서는 그대로 둔다)
+  function showChat(id, toEnd) {
+    if (selected !== id) return;
+    const hadFocus = document.activeElement && document.activeElement.id === "chatIn";
+    const y = chatBody() ? chatBody().scrollTop : 0;
+    renderChat(byId[id]);
+    const b = chatBody();
+    if (b) b.scrollTop = toEnd ? b.scrollHeight : y;
+    if (hadFocus) focusComposer();
+  }
+  // 답을 받는 동안에는 답 말풍선만 고친다
+  function paintLive(id) {
+    if (selected !== id) return;
+    const b = chatEl.querySelector("#liveBubble"), body = chatBody();
+    if (!b || !body) return;
+    const atEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 120;
+    b.className = "bubble md";
+    b.removeAttribute("role");
+    b.innerHTML = withCursor(md(live[id].text));
+    if (atEnd) chatToEnd();
+  }
+  // 개념의 ‘질문’ 버튼: 그 개념에 대한 질문을 입력칸에 채운다
+  function askConcept(n, name) {
+    drafts[n.id] = `‘${name}’ 개념을 좀 더 자세히 설명해 줘.`;
+    renderChat(n);
+    if (!wide()) setChatOpen(true); else focusComposer();
+  }
+
+  async function send(n) {
+    const id = n.id, q = (drafts[id] || "").trim();
+    if (!q || live[id] || !lsGet(AI_KEY)) return;
+    const history = (chats[id] && chats[id].msgs) || [];
+    const ctrl = new AbortController();
+    live[id] = { q, text: "", ctrl };
+    drafts[id] = "";
+    delete aiErr[id];
+    if (!store[id]?.started) { store[id] = { ...store[id], started: true }; save(); refresh(); }
+    showChat(id, true);
+    // 질문과 답은 답을 다 받은 뒤에 함께 저장한다 (실패하면 질문을 입력칸으로 돌려놓는다)
+    const keep = content => {
+      const c = chats[id] || (chats[id] = { msgs: [] });
+      c.msgs.push(userMsg(q), { role: "assistant", content });
+      if (!saveChats()) aiErr[id] = "브라우저 저장 공간이 가득 차서 이 대화를 저장하지 못했어요. 다른 주제의 대화를 지우거나 백업 파일로 저장해 두세요.";
+    };
+    try {
+      const { blocks, stop } = await callClaude({
+        system: tutorPrompt(n),
+        messages: [...history, userMsg(q)],
+        signal: ctrl.signal,
+        onText: t => { live[id].text = t; paintLive(id); },
+      });
+      if (stop === "refusal") throw new Error("refusal");
+      const content = echoable(blocks);
+      if (!textOf(content).trim()) throw new Error("empty");
+      if (stop === "max_tokens") content.push({ type: "text", text: "\n\n(답이 너무 길어 중간에 끊겼어요. ‘이어서 설명해 줘’라고 보내 보세요.)" });
+      keep(content);
+    } catch (e) {
+      const partial = live[id].text.trim();
+      if (e.name === "AbortError" && partial) keep([{ type: "text", text: partial + "\n\n(중간에 멈춤)" }]);
+      else {
+        if (e.name !== "AbortError") aiErr[id] = errText(e);
+        drafts[id] = drafts[id] || q;
+      }
+    } finally {
+      delete live[id];
+      showChat(id, true);
+      if (selected !== id) makeMemo(id);   // 답을 기다리는 사이 다른 주제로 넘어갔다면 지금 정리한다
+    }
+  }
+
+  // ── 공부 노트: 주제의 AI 대화를 짧게 정리해 설명 맨 위에 둔다 ──
+  const fmtDate = t => { const d = new Date(t), p = x => String(x).padStart(2, "0"); return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())} 정리`; };
+  function memoHtml(n) {
+    const c = chats[n.id], m = c && c.memo, count = c ? c.msgs.length : 0;
+    if (memoBusy[n.id]) return `<div class="memo"><h3><span>공부 노트</span></h3><p class="muted" role="status">AI 대화를 공부 노트로 정리하는 중…</p></div>`;
+    if (!count) return "";
+    const err = memoErr[n.id] ? `<p class="muted" style="margin-top:8px">정리하지 못했어요: ${esc(memoErr[n.id])}</p>` : "";
+    const chatBtn = `<button class="btn chat-toggle" data-memo="chat">AI 대화 보기</button>`;
+    const redoBtn = lsGet(AI_KEY) ? `<button class="btn" data-memo="redo">${m ? "지금 다시 정리" : "지금 정리"}</button>` : "";
+    if (!m) return `<div class="memo"><h3><span>공부 노트</span></h3>
+      <p class="muted">이 주제에서 나눈 AI 대화가 있어요. 다른 주제로 넘어가면 공부 노트로 정리됩니다.</p>${err}
+      <div class="p-actions">${chatBtn}${redoBtn}</div></div>`;
+    const stale = count > m.n;
+    return `<div class="memo"><h3><span>공부 노트</span><span>${fmtDate(m.at)}</span></h3>
+      <div class="md">${md(m.text)}</div>
+      ${stale ? `<p class="muted" style="margin-top:8px">정리한 뒤로 대화가 더 이어졌어요. 다른 주제로 넘어가면 다시 정리됩니다.</p>` : ""}${err}
+      <div class="p-actions">${chatBtn}${stale ? redoBtn : ""}</div></div>`;
+  }
+  function renderMemo(n) {
+    if (!n || selected !== n.id) return;
+    const box = panel.querySelector("#memoBox");
+    if (box) box.innerHTML = memoHtml(n);
+  }
+  panel.addEventListener("click", e => {
+    const b = e.target.closest("[data-memo]");
+    if (!b || !selected) return;
+    if (b.dataset.memo === "chat") setChatOpen(true);
+    else makeMemo(selected, true);
+  });
+  async function makeMemo(id, force) {
+    const c = chats[id], n = byId[id];
+    if (!c || !c.msgs.length || !n || memoBusy[id] || live[id] || !lsGet(AI_KEY)) return;
+    if (c.memo && c.memo.n >= c.msgs.length && !force) return;
+    const count = c.msgs.length;
+    const transcript = c.msgs.map(m => (m.role === "user" ? "학습자: " : "AI: ") + textOf(m.content).trim()).join("\n\n");
+    memoBusy[id] = true; delete memoErr[id]; renderMemo(n);
+    try {
+      const { blocks, stop } = await callClaude({
+        system: "학습자가 한 주제를 공부하며 AI 에게 물어본 대화를, 나중에 다시 볼 공부 노트로 정리한다. 한국어로 쓴다. 학습자가 헷갈렸던 점과 대화로 알게 된 핵심을 짧은 목록 3~8개로 남기고, 꼭 필요한 코드나 식만 짧게 붙인다. 인사말이나 '정리했습니다' 같은 말 없이 노트 본문만 쓴다. 서식은 목록, **굵게**, `코드`, 코드 블록만 쓴다.",
+        messages: [userMsg(`주제: ${n.title}\n\n<대화>\n${transcript}\n</대화>\n\n위 대화를 이 학습자의 공부 노트로 정리해 줘.`)],
+        maxTokens: 16000,
+      });
+      const text = textOf(blocks).trim();
+      if (stop === "refusal") throw new Error("refusal");
+      if (!text) throw new Error("empty");
+      if (chats[id] === c) { c.memo = { text, n: count, at: Date.now() }; saveChats(); }
+    } catch (e) {
+      memoErr[id] = errText(e);
+    } finally {
+      memoBusy[id] = false;
+      renderMemo(n);
+    }
+  }
+
   // ── 이동·확대 ──
-  const svg = document.getElementById("map"), world = document.getElementById("world");
+  const svg =document.getElementById("map"), world = document.getElementById("world");
   let view = { x: 0, y: 0, k: 1 };
   const apply = () => { world.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`); updateActive(); };
 
@@ -901,7 +1443,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
     const k = Math.max(view.k, 0.85);
     const panelOpen = !panel.hidden;
     const narrow = r.width <= 720;
-    const cx = panelOpen && !narrow ? (r.width - Math.min(500, r.width)) / 2 : r.width / 2;
+    // 패널(넓은 화면에서는 채팅창까지)이 가리지 않는 왼쪽 빈 곳의 가운데
+    const cx = panelOpen && !narrow ? Math.max(0, panel.getBoundingClientRect().left - r.left) / 2 : r.width / 2;
     const cy = panelOpen && narrow ? r.height * 0.18 : r.height / 2;
     view = { k, x: cx - n.x * k, y: cy - n.y * k };
     world.style.transition = matchMedia("(prefers-reduced-motion: reduce)").matches ? "" : "transform .35s ease";
@@ -963,8 +1506,28 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   document.getElementById("zFit").onclick = () => fit();
   addEventListener("resize", () => fitBasic());
 
+  // ── 밝은 / 어두운 화면 ──
+  const THEME_KEY = "emb-skill-tree-theme";
+  const themeBtn = document.getElementById("themeBtn"), themeMeta = document.querySelector('meta[name="theme-color"]');
+  const ICON_MOON = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 10.1A6 6 0 0 1 5.9 2.4a6 6 0 1 0 7.7 7.7z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  const ICON_SUN = `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M3 13l1.4-1.4M11.6 4.4L13 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    const label = t === "dark" ? "밝은 화면으로 바꾸기" : "어두운 화면으로 바꾸기";
+    themeBtn.innerHTML = t === "dark" ? ICON_SUN : ICON_MOON;
+    themeBtn.setAttribute("aria-label", label);
+    themeBtn.title = label;
+    if (themeMeta) themeMeta.content = t === "dark" ? "#050914" : "#f6f4ef";
+  }
+  themeBtn.onclick = () => {
+    const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    lsSet(THEME_KEY, t);
+    applyTheme(t);
+  };
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+
   // ── 도움말 ──
-  const help = document.getElementById("help"), resetBtn = document.getElementById("resetAll");
+  const help =document.getElementById("help"), resetBtn = document.getElementById("resetAll");
   const openHelp = () => { help.hidden = false; resetBtn.textContent = "진행 상황 전체 초기화"; resetBtn.dataset.armed = ""; document.getElementById("helpClose").focus(); };
   const closeHelp = () => { help.hidden = true; try { localStorage.setItem(STORE_KEY + "-seen", "1"); } catch (e) {} };
   document.getElementById("helpBtn").onclick = openHelp;
@@ -981,7 +1544,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
   const doneCount = st => N.filter(n => { const ok = (st[n.id] && st[n.id].ok) || []; return n.quiz.every((_, i) => ok[i]); }).length;
   document.getElementById("exportBtn").onclick = () => {
     const d = new Date(), pad = x => String(x).padStart(2, "0");
-    const data = { app: "embedded-skill-tree", version: 3, savedAt: d.toISOString(), progress: store };
+    const data = { app: "embedded-skill-tree", version: 3, savedAt: d.toISOString(), progress: store, chats };
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
     const a = document.createElement("a");
     a.href = url; a.download = `스킬트리-진행상황-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}.json`;
@@ -1007,15 +1570,32 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
         const started = store[n.id]?.started === true || data.progress[n.id]?.started === true || ok.some(Boolean);
         if (started) store[n.id] = { started: true, ok };
       }
+      // AI 대화: 주제마다 더 긴 대화를 남기고, 공부 노트는 더 최근에 정리한 쪽을 남긴다
+      let chatIn = 0;
+      const inc = data.chats && typeof data.chats === "object" ? data.chats : {};
+      for (const n of N) {
+        const a = chats[n.id], b = inc[n.id];
+        if (!b || !Array.isArray(b.msgs) || live[n.id]) continue;
+        const okMsgs = b.msgs.every(m => m && (m.role === "user" || m.role === "assistant") && (typeof m.content === "string" || Array.isArray(m.content)));
+        if (!okMsgs) continue;
+        const take = !a || b.msgs.length > a.msgs.length;
+        const memo = [a && a.memo, b.memo].filter(m => m && typeof m.text === "string").sort((x, y) => (y.at || 0) - (x.at || 0))[0];
+        if (take) chatIn++;
+        chats[n.id] = { msgs: take ? b.msgs : a.msgs, ...(memo ? { memo } : {}) };
+      }
+      saveChats();
       save(); refresh();
-      say(`불러왔어요. 완료한 주제가 ${before}개에서 ${doneCount(store)}개가 됐어요.`);
+      if (selected) renderChat(byId[selected]);
+      say(`불러왔어요. 완료한 주제가 ${before}개에서 ${doneCount(store)}개가 됐어요.${chatIn ? ` AI 대화 ${chatIn}개도 가져왔어요.` : ""}`);
     } catch (e) {
       say("이 파일은 불러올 수 없어요. 이 페이지의 '파일로 저장'으로 만든 .json 파일인지 확인해 주세요.", true);
     }
   };
   addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
-    if (!help.hidden) closeHelp(); else if (selected) select(null);
+    if (!help.hidden) closeHelp();
+    else if (mainEl.classList.contains("chat-open")) setChatOpen(false);
+    else if (selected) select(null);
   });
 
   // ── 시작 ──
