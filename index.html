@@ -504,11 +504,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     <p>선은 권장 순서일 뿐 잠금이 아닙니다. 어떤 원이든 바로 열어 볼 수 있습니다.</p>
     <div class="backup">
       <p class="eyebrow">진행 상황 백업</p>
-      <p>진행 상황과 AI 대화·공부 노트는 이 브라우저에만 저장됩니다. 파일로 저장해 두면 다른 브라우저나 컴퓨터에서 불러올 수 있습니다. 불러오면 지금 기록과 합쳐지고, 둘 중 한쪽에서라도 맞힌 문제는 맞힌 것으로 남습니다.</p>
+      <p>진행 상황과 AI 대화·공부 노트는 이 브라우저에만 저장됩니다. claude.ai 판은 처음 클릭할 때 GitHub 판과 저절로 맞춰집니다 (작은 창이 잠깐 떴다 닫힘). 파일로 저장해 두면 다른 브라우저나 컴퓨터에서 불러올 수 있습니다. 불러오면 지금 기록과 합쳐지고, 둘 중 한쪽에서라도 맞힌 문제는 맞힌 것으로 남습니다.</p>
       <div class="row">
         <button class="btn" id="exportBtn">파일로 저장</button>
         <button class="btn" id="importBtn">파일 불러오기</button>
         <input type="file" id="importFile" accept=".json,application/json" hidden>
+        <button class="btn" id="syncBtn" hidden>GitHub 판과 맞추기</button>
       </div>
       <p class="backup-msg" id="backupMsg" role="status"></p>
     </div>
@@ -553,7 +554,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
   // ── AI 대화 저장소 ──
   // chats[주제 id] = { msgs: [{ role: "user" | "assistant", content }], memo: { text, n, at } }
-  //   user 의 content 는 글자, assistant 의 content 는 API 가 돌려준 블록 배열 그대로 (다음 질문 때 그대로 다시 보낸다)
+  //   content 는 글자 (예전 기록은 블록 배열일 수 있어 textOf 로 읽는다)
   //   memo = 공부 노트. n = 노트를 만들 때까지의 메시지 수 (그 뒤로 대화가 늘었으면 다시 정리한다)
   const CHAT_KEY = "emb-skill-tree-chat-claude-v1";
   let chats = {};
@@ -1532,6 +1533,35 @@ ${n.concepts.map(([a, b], i) => `${i + 1}. ${a} — ${b}`).join("\n")}
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     say(done);
   };
+  // 다른 곳(백업 파일, GitHub 판)의 기록을 지금 기록에 합친다
+  function mergeIn(data) {
+    const before = doneCount(store), progress = data.progress || {};
+    // 합치기: 어느 한쪽에서라도 맞힌 문제는 맞힌 것으로 남긴다. 지금 없는 주제의 기록은 무시한다.
+    for (const n of N) {
+      const inc = progress[n.id] && Array.isArray(progress[n.id].ok) ? progress[n.id].ok : [];
+      const cur = (store[n.id] && store[n.id].ok) || [];
+      const ok = n.quiz.map((_, i) => !!(cur[i] || inc[i]));
+      const started = store[n.id]?.started === true || progress[n.id]?.started === true || ok.some(Boolean);
+      if (started) store[n.id] = { started: true, ok };
+    }
+    // AI 대화: 주제마다 더 긴 대화를 남기고, 공부 노트는 더 최근에 정리한 쪽을 남긴다
+    let chatIn = 0;
+    const inc = data.chats && typeof data.chats === "object" ? data.chats : {};
+    for (const n of N) {
+      const a = chats[n.id], b = inc[n.id];
+      if (!b || !Array.isArray(b.msgs) || live[n.id]) continue;
+      const okMsgs = b.msgs.every(m => m && (m.role === "user" || m.role === "assistant") && (typeof m.content === "string" || Array.isArray(m.content)));
+      if (!okMsgs) continue;
+      const take = !a || b.msgs.length > a.msgs.length;
+      const memo = [a && a.memo, b.memo].filter(m => m && typeof m.text === "string").sort((x, y) => (y.at || 0) - (x.at || 0))[0];
+      if (take) chatIn++;
+      chats[n.id] = { msgs: take ? b.msgs : a.msgs, ...(memo ? { memo } : {}) };
+    }
+    saveChats();
+    save(); refresh();
+    if (selected) renderChat(byId[selected]);
+    return { before, chatIn };
+  }
   const importFile = document.getElementById("importFile");
   document.getElementById("importBtn").onclick = () => importFile.click();
   importFile.onchange = async () => {
@@ -1541,36 +1571,55 @@ ${n.concepts.map(([a, b], i) => `${i + 1}. ${a} — ${b}`).join("\n")}
     try {
       const data = JSON.parse(await f.text());
       if (!data || data.app !== "embedded-skill-tree" || typeof data.progress !== "object") throw new Error("form");
-      const before = doneCount(store);
-      // 합치기: 어느 한쪽에서라도 맞힌 문제는 맞힌 것으로 남긴다. 지금 없는 주제의 기록은 무시한다.
-      for (const n of N) {
-        const inc = data.progress[n.id] && Array.isArray(data.progress[n.id].ok) ? data.progress[n.id].ok : [];
-        const cur = (store[n.id] && store[n.id].ok) || [];
-        const ok = n.quiz.map((_, i) => !!(cur[i] || inc[i]));
-        const started = store[n.id]?.started === true || data.progress[n.id]?.started === true || ok.some(Boolean);
-        if (started) store[n.id] = { started: true, ok };
-      }
-      // AI 대화: 주제마다 더 긴 대화를 남기고, 공부 노트는 더 최근에 정리한 쪽을 남긴다
-      let chatIn = 0;
-      const inc = data.chats && typeof data.chats === "object" ? data.chats : {};
-      for (const n of N) {
-        const a = chats[n.id], b = inc[n.id];
-        if (!b || !Array.isArray(b.msgs) || live[n.id]) continue;
-        const okMsgs = b.msgs.every(m => m && (m.role === "user" || m.role === "assistant") && (typeof m.content === "string" || Array.isArray(m.content)));
-        if (!okMsgs) continue;
-        const take = !a || b.msgs.length > a.msgs.length;
-        const memo = [a && a.memo, b.memo].filter(m => m && typeof m.text === "string").sort((x, y) => (y.at || 0) - (x.at || 0))[0];
-        if (take) chatIn++;
-        chats[n.id] = { msgs: take ? b.msgs : a.msgs, ...(memo ? { memo } : {}) };
-      }
-      saveChats();
-      save(); refresh();
-      if (selected) renderChat(byId[selected]);
+      const { before, chatIn } = mergeIn(data);
       say(`불러왔어요. 완료한 주제가 ${before}개에서 ${doneCount(store)}개가 됐어요.${chatIn ? ` AI 대화 ${chatIn}개도 가져왔어요.` : ""}`);
     } catch (e) {
       say("이 파일은 불러올 수 없어요. 이 페이지의 '파일로 저장'으로 만든 .json 파일인지 확인해 주세요.", true);
     }
   };
+
+  // ── claude.ai 판 ↔ GitHub 판 기록 자동으로 맞추기 ──
+  // 두 곳은 브라우저 저장 공간이 따로라서, claude.ai 판에서 처음 클릭할 때 GitHub 판의 작은 창(sync.html)을
+  // 잠깐 열어 서로의 기록을 건네고 합친다. 브라우저 안에서 두 창끼리만 주고받는다 (API·서버·키 없음).
+  const GH_ORIGIN = "https://jh10050730.github.io", SYNC_URL = GH_ORIGIN + "/embedded-skill-tree/sync.html";
+  const inClaude = !!window.claude && /\.claudeusercontent\.com$/.test(location.hostname);
+  let synced = false;
+  function syncWithGitHub(manual) {
+    if (!inClaude || (synced && !manual)) return;
+    synced = true;
+    const w = window.open(SYNC_URL, "emb-skill-tree-sync", "popup,width=380,height=200");
+    if (!w && manual) say("작은 창이 막혔어요. 브라우저에서 이 페이지의 팝업을 허용해 주세요.", true);
+  }
+  if (inClaude) {
+    const syncBtn = document.getElementById("syncBtn");
+    syncBtn.hidden = false;
+    syncBtn.onclick = () => syncWithGitHub(true);
+    addEventListener("message", e => {
+      if (e.origin !== GH_ORIGIN || !e.data || e.data.app !== "emb-sync" || !e.source) return;
+      if (e.data.type === "ready") e.source.postMessage({ app: "emb-sync", type: "pull" }, GH_ORIGIN);
+      else if (e.data.type === "data") {
+        const inc = { progress: e.data.progress, chats: e.data.chats };
+        if (typeof inc.progress !== "object" || !inc.progress) inc.progress = {};
+        if (typeof inc.chats !== "object" || !inc.chats) inc.chats = {};
+        const { before, chatIn } = mergeIn(inc);
+        e.source.postMessage({ app: "emb-sync", type: "push", progress: store, chats }, GH_ORIGIN);
+        const after = doneCount(store);
+        say(`GitHub 판과 맞췄어요. 완료한 주제 ${after}개${after > before ? ` (${after - before}개 가져옴)` : ""}${chatIn ? ` · AI 대화 ${chatIn}개 가져옴` : ""}.`);
+      }
+    });
+    addEventListener("click", () => syncWithGitHub(false), { capture: true });
+  }
+  // GitHub 판: 다른 창(sync.html)이 기록을 바꾸면 화면에 바로 반영한다
+  addEventListener("storage", e => {
+    if (e.key !== STORE_KEY && e.key !== CHAT_KEY) return;
+    try {
+      const v = JSON.parse(e.newValue || "{}") || {};
+      if (e.key === STORE_KEY) store = v; else chats = v;
+    } catch (err) { return; }
+    refresh();
+    if (selected && byId[selected]) { renderPanel(byId[selected]); showChat(selected); }
+  });
+
   addEventListener("keydown", e => {
     if (e.key !== "Escape") return;
     if (!help.hidden) closeHelp();

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>진행 상황 맞추기</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #f7f5f0; --fg: #23211d; --muted: #6b665c; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #17181b; --fg: #ecebe7; --muted: #a09d95; } }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.6 system-ui, "Malgun Gothic", sans-serif; display: grid; place-items: center; padding: 16px; box-sizing: border-box; text-align: center; }
+  small { color: var(--muted); display: block; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div><p id="msg">claude.ai 판과 진행 상황을 맞추는 중…</p><small>잠시 뒤 저절로 닫혀요.</small></div>
+<script>
+// claude.ai 판(스킬 트리)이 연 작은 창. 이 GitHub 판 브라우저 저장 공간의 기록을 건네고,
+// 두 쪽을 합친 기록을 받아 저장한 뒤 닫힌다. 브라우저 안에서 두 창끼리만 주고받는다.
+(() => {
+  const KEYS = { progress: "emb-skill-tree-v3", chats: "emb-skill-tree-chat-claude-v1" };
+  const fromClaude = o => /^https:\/\/[a-z0-9.-]+\.claudeusercontent\.com$/.test(o);
+  const msg = document.getElementById("msg");
+  const read = k => { try { const v = JSON.parse(localStorage.getItem(k) || "{}"); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } };
+  const done = text => { msg.textContent = text; setTimeout(() => window.close(), 400); };
+  if (!window.opener) { msg.textContent = "이 창은 claude.ai 판이 열 때만 쓰여요. 닫아도 돼요."; return; }
+  addEventListener("message", e => {
+    if (!fromClaude(e.origin) || !e.data || e.data.app !== "emb-sync" || !e.source) return;
+    if (e.data.type === "pull") {
+      e.source.postMessage({ app: "emb-sync", type: "data", progress: read(KEYS.progress), chats: read(KEYS.chats) }, e.origin);
+    } else if (e.data.type === "push") {
+      const { progress, chats } = e.data;
+      try {
+        if (progress && typeof progress === "object") localStorage.setItem(KEYS.progress, JSON.stringify(progress));
+        if (chats && typeof chats === "object") localStorage.setItem(KEYS.chats, JSON.stringify(chats));
+        done("맞췄어요.");
+      } catch (err) { done("이 브라우저에 저장하지 못했어요."); }
+    }
+  });
+  // 처음 인사에는 기록을 싣지 않는다. 기록은 claude.ai 판임이 확인된 뒤(pull)에만 보낸다.
+  window.opener.postMessage({ app: "emb-sync", type: "ready" }, "*");
+  setTimeout(() => window.close(), 10000);
+})();
+</script>
+</body>
+</html>
