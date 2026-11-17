@@ -569,7 +569,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   const aiReady = () => typeof ai === "function" && !aiOff;
   const textOf = c => typeof c === "string" ? c : (c || []).filter(b => b.type === "text").map(b => b.text).join("");
   (window.claude && typeof window.claude.use === "function" ? window.claude.use("sample").catch(() => null) : Promise.resolve(null))
-    .then(s => { ai = typeof s === "function" ? s : null; if (selected && byId[selected]) { showChat(selected); renderMemo(byId[selected]); } });
+    .then(s => {
+      ai = typeof s === "function" ? s : null;
+      if (offClaude()) mainEl.classList.remove("chat-open");
+      syncChatBtn();
+      if (selected && byId[selected]) { showChat(selected); renderMemo(byId[selected]); }
+    });
   // 대화가 너무 길면 오래된 질문·답부터 빼고 보낸다 (Claude 에 보낼 수 있는 글은 256KB 까지)
   function recent(msgs, budget = 120000) {
     const out = [];
@@ -1052,7 +1057,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
       ${s === "available" || s === "locked" ? `<div class="p-actions"><button class="btn primary" id="startLearning">학습 시작</button></div>` : ""}
       ${study}`;
     panel.querySelector("#pClose").onclick = () => select(null);
-    panel.querySelector("#chatOpen").onclick = () => setChatOpen(!mainEl.classList.contains("chat-open"));
+    panel.querySelector("#chatOpen").onclick = () => offClaude() ? openApp() : setChatOpen(!mainEl.classList.contains("chat-open"));
     syncChatBtn();
     panel.querySelectorAll("[data-ask]").forEach(b => b.onclick = () => askConcept(n, n.concepts[+b.dataset.ask][0]));
     const startLearning = panel.querySelector("#startLearning");
@@ -1119,9 +1124,21 @@ ${n.concepts.map(([a, b], i) => `${i + 1}. ${a} — ${b}`).join("\n")}
   ];
 
   // 채팅창 열기/닫기 (‘AI 채팅’ 버튼, 개념의 ‘질문’ 버튼, 채팅창의 × 버튼)
+  // claude.ai 밖(GitHub Pages 등)에서는 Claude 를 못 쓰므로 버튼을 누르면 claude.ai 판을 새 탭으로 연다
+  const offClaude = () => ai === null && !!APP_URL;
+  function openApp() { window.open(APP_URL, "_blank", "noopener"); }
   function syncChatBtn() {
     const b = panel.querySelector("#chatOpen"), open = mainEl.classList.contains("chat-open");
-    if (b) { b.textContent = open ? "AI 채팅 닫기" : "AI 채팅"; b.setAttribute("aria-expanded", String(open)); }
+    if (!b) return;
+    if (offClaude()) {
+      b.textContent = "AI 채팅 ↗";
+      b.title = "claude.ai 에서 열기 (내 Claude 계정으로 답해요)";
+      b.removeAttribute("aria-expanded");
+      return;
+    }
+    b.textContent = open ? "AI 채팅 닫기" : "AI 채팅";
+    b.removeAttribute("title");
+    b.setAttribute("aria-expanded", String(open));
   }
   function setChatOpen(open) {
     mainEl.classList.toggle("chat-open", !!open);
@@ -1235,6 +1252,7 @@ ${n.concepts.map(([a, b], i) => `${i + 1}. ${a} — ${b}`).join("\n")}
   }
   // 개념의 ‘질문’ 버튼: 그 개념에 대한 질문을 입력칸에 채운다
   function askConcept(n, name) {
+    if (offClaude()) return openApp();
     drafts[n.id] = `‘${name}’ 개념을 좀 더 자세히 설명해 줘.`;
     renderChat(n);
     setChatOpen(true);
